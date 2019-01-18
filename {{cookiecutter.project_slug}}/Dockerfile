@@ -12,7 +12,7 @@ EXPOSE 8072 8072
 RUN apt-get update && apt-get upgrade -y
 
 # system deps
-RUN apt-get install wget git python-pip \
+RUN apt-get install wget unzip git python-pip \
 	python-dateutil python-feedparser python-ldap \
 	python-libxslt1 python-lxml python-mako python-openid \
 	python-psycopg2 python-pybabel python-pychart python-pydot \
@@ -46,16 +46,24 @@ RUN mkdir -p /var/lib/odoo \
 	&& chown -R odoo:odoo /var/lib/odoo \
 	&& sync
 
-# mount odoo code
+# odoo config
+COPY config.d/00-base.conf /etc/odoo-server.conf
 
-RUN cp ${OE_HOME_EXT}/debian/odoo.conf /etc/odoo-server.conf \
-	&& chown odoo:odoo /etc/odoo-server.conf \
+RUN chown odoo:odoo /etc/odoo-server.conf \
 	&& chmod 640 /etc/odoo-server.conf
 
-RUN sed -i s/"db_user = .*"/"db_user = odoo"/g /etc/odoo-server.conf
-RUN sed -i s/"; admin_passwd.*"/"admin_passwd = ${OE_SUPERADMIN}"/g /etc/odoo-server.conf
-RUN echo 'logfile = /var/log/odoo/odoo-server.log' >> /etc/odoo-server.conf
+# odoo code
+RUN wget https://github.com/odoo/odoo/archive/${ODOO_VERSION}.zip \
+	&& unzip ${ODOO_VERSION}.zip \
+	&& mv ${ODOO_VERSION} ${OE_HOME_EXT} \
+	&& rm ${ODOO_VERSION}.zip
 
+# mount project on custom directory
+RUN su ${OE_USER} -c mkdir ${OE_HOME}/custom
 
+# odoo as service
+COPY systemd/odoo-server.service /etc/systemd/system/odoo-server.service
 
-# script to run odoo as service
+RUN systemctl daemon-reload \
+	&& systemctl enable odoo-server.service
+	&& systemctl start odoo-server.service

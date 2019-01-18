@@ -1,0 +1,10 @@
+[Unit]
+Description=Odoo Business Application
+
+[Service]
+WorkingDirectory=/odoo/odoo-server
+ExecStart=odoo-bin -c /etc/odoo-server.conf
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
