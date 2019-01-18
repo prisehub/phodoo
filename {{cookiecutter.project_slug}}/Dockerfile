@@ -12,30 +12,25 @@ EXPOSE 8072 8072
 RUN apt-get update && apt-get upgrade -y
 
 # system deps
-RUN apt-get install wget unzip git python-pip \
-	python-dateutil python-feedparser python-ldap \
-	python-libxslt1 python-lxml python-mako python-openid \
-	python-psycopg2 python-pybabel python-pychart python-pydot \
-	python-pyparsing python-reportlab python-simplejson python-tz \
-	python-vatnumber python-vobject python-webdav python-werkzeug \
-	python-xlwt python-yaml python-zsi python-docutils python-psutil \
-	python-mock python-unittest2 python-jinja2 python-pypdf \
-	python-decorator python-requests python-passlib python-pil \
-	python-suds python-gevent npm node-clean-css node-less \
+RUN apt-get install -y wget curl zip git python-pip \
+	libldap2-dev libsasl2-dev zlibc libssl-dev \
+	bzip2 ca-certificates curl gettext-base \
+	fontconfig libfreetype6 libxml2-dev libxslt1-dev libxml2 libxslt1.1 zlib1g \
 	&& curl https://bootstrap.pypa.io/get-pip.py | python /dev/stdin \
+	&& curl -sL https://deb.nodesource.com/setup_6.x | bash - \
+	&& apt-get install -yqq nodejs \
 	&& curl -SLo wkhtmltox.deb https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/${WKHTMLTOPDF_VERSION}/wkhtmltox_${WKHTMLTOPDF_VERSION}-1.trusty_amd64.deb \
 	&& (dpkg --install wkhtmltox.deb || true) \
-	&& rm -f wkhtmltox.deb
+	&& apt-get install -yqq --no-install-recommends --fix-broken \
+	&& rm -f wkhtmltox.deb \
+	&& wkhtmltopdf --version
 
 # odoo python deps
 RUN pip install -r https://raw.githubusercontent.com/odoo/odoo/${ODOO_VERSION}/requirements.txt
 
+RUN ln -s /usr/bin/nodejs /usr/local/bin/node
 RUN npm install -g less
 RUN npm install -g less-plugin-clean-css
-
-RUN ln -s /usr/local/bin/wkhtmltopdf /usr/bin
-
-RUN ln /s /usr/local/bin/wkhtmltoimage /usr/bin
 
 RUN adduser --system --quiet --shell=/bin/bash --home=${OE_HOME} --gecos 'ODOO' --group ${OE_USER}
 
@@ -53,17 +48,24 @@ RUN chown odoo:odoo /etc/odoo-server.conf \
 	&& chmod 640 /etc/odoo-server.conf
 
 # odoo code
-RUN wget https://github.com/odoo/odoo/archive/${ODOO_VERSION}.zip \
-	&& unzip ${ODOO_VERSION}.zip \
-	&& mv ${ODOO_VERSION} ${OE_HOME_EXT} \
+RUN wget https://github.com/odoo/odoo/archive/${ODOO_VERSION}.zip
+
+RUN unzip ${ODOO_VERSION}.zip \
+	&& mv odoo-${ODOO_VERSION} ${OE_HOME_EXT} \
 	&& rm ${ODOO_VERSION}.zip
 
 # mount project on custom directory
-RUN su ${OE_USER} -c mkdir ${OE_HOME}/custom
+RUN mkdir ${OE_HOME}/custom
+
+WORKDIR /odoo/odoo-server
+
+USER odoo
+
+# test odoo version
+RUN /odoo/odoo-server/odoo-bin --version
+
+
+ENTRYPOINT ["/odoo/odoo-server/odoo-bin"]
 
 # odoo as service
-COPY systemd/odoo-server.service /etc/systemd/system/odoo-server.service
-
-RUN systemctl daemon-reload \
-	&& systemctl enable odoo-server.service
-	&& systemctl start odoo-server.service
+CMD ["-c", "/etc/odoo-server.conf"]
