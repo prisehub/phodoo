@@ -6,8 +6,12 @@ ARG OE_HOME_EXT=/odoo/odoo-server
 ARG WKHTMLTOPDF_VERSION=0.12.5
 ARG ODOO_VERSION=10.0
 
+EXPOSE 8069 8069
+EXPOSE 8072 8072
+
 RUN apt-get update && apt-get upgrade -y
 
+# system deps
 RUN apt-get install wget git python-pip \
 	python-dateutil python-feedparser python-ldap \
 	python-libxslt1 python-lxml python-mako python-openid \
@@ -21,7 +25,9 @@ RUN apt-get install wget git python-pip \
 	&& curl https://bootstrap.pypa.io/get-pip.py | python /dev/stdin \
 	&& curl -SLo wkhtmltox.deb https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/${WKHTMLTOPDF_VERSION}/wkhtmltox_${WKHTMLTOPDF_VERSION}-1.trusty_amd64.deb \
 	&& (dpkg --install wkhtmltox.deb || true) \
+	&& rm -f wkhtmltox.deb
 
+# odoo python deps
 RUN pip install -r https://raw.githubusercontent.com/odoo/odoo/${ODOO_VERSION}/requirements.txt
 
 RUN npm install -g less
